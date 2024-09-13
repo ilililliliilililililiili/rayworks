@@ -1,0 +1,32 @@
+{
+  "name": "rayworks-development",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "Core": {
+        "$path": "src/ReplicatedStorage"
+      }
+    },
+
+    "ServerStorage": {
+      "Core": {
+        "$path": "src/ServerStorage"
+      }
+    },
+
+    "ServerScriptService": {
+      "Core": {
+        "$path": "src/ServerScriptService"
+      }
+    },
+
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Core": {
+          "$path": "src/StarterPlayerScripts"
+        }
+      }
+    }
+  }
+}
