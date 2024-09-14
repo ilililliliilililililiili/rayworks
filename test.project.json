@@ -1,0 +1,26 @@
+{
+    "name":"rayworks",
+    "tree":{
+       "$className":"DataModel",
+       "ReplicatedStorage":{
+          "Rayworks":{
+             "$path":"src"
+          }
+       },
+       "ServerScriptService":{
+          "$className":"ServerScriptService",
+          "Test":{
+             "$path":"test/server"
+          }
+       },
+       "StarterPlayer":{
+          "$className":"StarterPlayer",
+          "StarterPlayerScripts":{
+             "$className":"StarterPlayerScripts",
+             "Test":{
+                "$path":"test/client"
+             }
+          }
+       }
+    }
+ }

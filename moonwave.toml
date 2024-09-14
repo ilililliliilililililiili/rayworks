@@ -1,6 +1,11 @@
+title = "Rayworks"
+
 gitSourceBranch = "master"
 changelog = true
 classOrder = []
+
+[home]
+enabled = true
 
 [docusaurus]
 onBrokenLinks = "throw"
