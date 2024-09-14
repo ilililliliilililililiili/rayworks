@@ -1,14 +1,11 @@
-title = "Rayworks"  # From Git
-
-[home]
-enabled = true
+gitSourceBranch = "master"
+changelog = true
+classOrder = []
 
 [docusaurus]
-baseUrl = "/C:/Users/Rayan/Desktop/rayworks-development/build/index.html/"
 onBrokenLinks = "throw"
 onBrokenMarkdownLinks = "warn"
 
-
 [footer]
 style = "dark"
-copyright = "Copyright © 2024 g_uitarist. Built with Moonwave and Docusaurus"
+copyright = "Copyright © 2024 ilililliliilililililiili. Built with Moonwave and Docusaurus"
