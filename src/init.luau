@@ -156,14 +156,20 @@ function Rayworks.CreateConfiguration(waitForServer: boolean, searchDepth: numbe
 	return configClone
 end
 
+
 --[=[
-	@prop Util Folder
-	@readonly
-	@within Rayworks
+	@return Logger
+	@param loggerName string
+
+	```lua
+	local myLogger = Rayworks.CreateLogger("myLogger")
+	```
 ]=]
-Rayworks.Util = {
-	Logger = require(script.Util.Logger)
-}
+local Logger = require(script.Logger)
+function Rayworks.CreateLogger(loggerName: string)
+	return Logger.new(loggerName)
+end
+
 
 --[=[
 	@prop __logger Logger
@@ -172,7 +178,7 @@ Rayworks.Util = {
 
 	Used to log Rayworks debug information.
 ]=]
-Rayworks.__logger = Rayworks.Util.Logger.new("Rayworks")
+Rayworks.__logger = Rayworks.CreateLogger("Rayworks")
 
 
 --[=[

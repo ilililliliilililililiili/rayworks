@@ -11,10 +11,8 @@ type Logger = {
     Logger class used by Rayworks. Can be used by non-Rayworks modules/scripts.
 
     ```lua
-    local Logger = require(Rayworks.Util.Logger)
-
     -- logger creation
-    local myLogger = Logger.new("Ray's Logger")
+    local myLogger = Rayworks.CreateLogger("Ray's Logger")
 
     -- log data
     myLogger:LogInformation("I am a logger and I have just been created!")
