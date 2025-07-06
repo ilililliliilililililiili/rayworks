@@ -1,7 +1,7 @@
 type Logger = {
-    LogInfo: (Logger, ...any) -> (),
-    LogWarning: (Logger, ...any) -> (),    
-    LogError: (Logger, ...any) -> (),
+    logInfo: (Logger, ...any) -> (),
+    logWarning: (Logger, ...any) -> (),    
+    logError: (Logger, ...any) -> (),
 }
 
 
@@ -12,11 +12,11 @@ type Logger = {
 
     ```lua
     -- logger creation
-    local myLogger = Rayworks.CreateLogger("Ray's Logger")
+    local myLogger = Rayworks.createLogger("Ray's Logger")
 
     -- log data
     myLogger:LogInformation("I am a logger and I have just been created!")
-    myLogger:LogError("Oops :3 System malfunction :D")
+    myLogger:logError("Oops :3 System malfunction :D")
     ```
 ]=]
 local Logger = {}
@@ -53,9 +53,6 @@ function Logger.new(loggerName: string?) : Logger
 
     local self = {}
 
-    self.INFO_LOG_PREFIX = ("✅ [%s] [Info]"):format(loggerName)
-    self.WARN_LOG_PREFIX = ("⚠️ [%s] [Warn]"):format(loggerName)
-    self.ERROR_LOG_PREFIX = ("❌ [%s] [Error]"):format(loggerName)
     self.Name = loggerName
     self.Logs = {}
 
@@ -68,8 +65,8 @@ end
 
     Information-level log function.
 ]=]
-function Logger:LogInfo(...)
-    print(self.INFO_LOG_PREFIX, ...)
+function Logger:logInfo(...)
+    print(`✅ [{self.Name}] [Info]`, ...)
     Logger.storeLog(self, "Info", (...))
 end
 
@@ -79,8 +76,8 @@ end
 
     Warning-level log function.
 ]=]
-function Logger:LogWarning(...)
-    print(self.WARN_LOG_PREFIX, ...)
+function Logger:logWarning(...)
+    warn(`⚠️ [{self.Name}] [Warn]`, ...)
     Logger.storeLog(self, "Warn", (...))
 end
 
@@ -90,8 +87,8 @@ end
 
     Error-level log function.
 ]=]
-function Logger:LogError(...)
-    print(self.ERROR_LOG_PREFIX, ...)
+function Logger:logError(...)
+    warn(`❌ [{self.Name}] [Error]`, ...)
     Logger.storeLog(self, "Error", (...))
 end
 
