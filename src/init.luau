@@ -8,50 +8,55 @@
 type RayworksConfiguration = {
 	WaitForServer: boolean,
 	SearchDepth: number,
-	LoadKey: string
+	LoadKey: string,
+	Verbose: boolean
 }
 
 
 local defaultConfiguration: RayworksConfiguration = {
 	WaitForServer = true,
-	SearchDepth = 100,
-	LoadKey = "RayworksLoaded"
+	SearchDepth = math.huge,
+	LoadKey = "RayworksLoaded",
+	Verbose = false
 }
 
 
 --[=[
 	@interface Module
-	.Init (Module, Rayworks) -> ()
-	.Start (Module, Rayworks) -> ()
+	.init (Module, Rayworks) -> ()
+	.start (Module, Rayworks) -> ()
 	@within Rayworks
 ]=]
 type Module = {
-	Init: (self: Module, Rayworks: table) -> (),
-	Start: (self: Module, Rayworks: table) -> (),
+	init: (self: Module, Rayworks: table) -> (),
+	start: (self: Module, Rayworks: table) -> (),
 	[any]: any
 }
 
 -- util
-local function DirectorySearchFilterWithCallback(directory: Instance, t: string, callback: (instance: Instance) -> (), currentDepth: number, maxDepth: number, ...)
+local function directorySearchFilterWithCallback(directory: Instance, t: string, currentDepth: number, maxDepth: number, callback: (instance: Instance) -> (), ...)
 	for _, child in directory:GetChildren() do
 		if child:IsA("Folder") then
+			if child.Name == "Classes" then
+				continue
+			end
 			if currentDepth >= maxDepth then
 				continue
 			end
-			DirectorySearchFilterWithCallback(child, t, callback, currentDepth + 1, maxDepth)
+			directorySearchFilterWithCallback(child, t, currentDepth + 1, maxDepth, callback, ...)
 		elseif child:IsA(t) then
 			callback(child, ...)
 
 			if currentDepth >= maxDepth then
 				continue
 			end
-			DirectorySearchFilterWithCallback(child, t, callback, currentDepth + 1, maxDepth)
+			directorySearchFilterWithCallback(child, t, currentDepth + 1, maxDepth, callback, ...)
 		end
 	end
 end
 
 
-local function ForEach(callback: (element: any) -> (), t: {any}, ...)
+local function forEach(callback: (element: any) -> (), t: {any}, ...)
 	for _, element in t do
 		callback(element, ...)
 	end
@@ -71,55 +76,55 @@ local modules: { [string]: table } = {}
 
 
 -- requires a module script and adds it to the init/start tables if their respective functions are found
-local function Load(moduleScript: ModuleScript, framework)
+local function load(moduleScript: ModuleScript, framework)
 	local success, _ = pcall(function()
 		-- require the module
 		local module = require(moduleScript)
 		-- add it to the loaded table
 		loadedModules[moduleScript] = module
 		-- add to init/start
-		if module.Init then
+		if module.init then
 			table.insert(modulesWithInit, moduleScript)
 		end
-		if module.Start then
+		if module.start then
 			table.insert(modulesWithStart, moduleScript)
 		end
 	end)
 
 	if not success then
-		framework.__logger:LogError("Failed to load module:", moduleScript, _)
+		framework.__logger:logError("Failed to load module:", moduleScript, _)
 		modulesThatFailed[moduleScript] = true
 	end
 end
 
 
--- initializes a module script by calling its Init function
-local function Init(moduleScript: ModuleScript, framework)
+-- initializes a module script by calling its init function
+local function init(moduleScript: ModuleScript, framework)
 	if modulesThatFailed[moduleScript] then return end
 
 	local success, _ = pcall(function()
 		local module = loadedModules[moduleScript]
-		module:Init(framework)
+		module:init(framework)
 	end)
 
 	if not success then
-		framework.__logger:LogError("Failed to initialize module:", moduleScript, _)
+		framework.__logger:logError("Failed to initialize module:", moduleScript, _)
 		modulesThatFailed[moduleScript] = true
 	end
 end
 
 
--- starts a module script by calling its Start function
-local function Start(moduleScript: ModuleScript, framework)
+-- starts a module script by calling its start function
+local function start(moduleScript: ModuleScript, framework)
 	if modulesThatFailed[moduleScript] then return end
 
 	local success, _ = pcall(function()
 		local module = loadedModules[moduleScript]
-		module:Start(framework)
+		module:start(framework)
 	end)
 
 	if not success then
-		framework.__logger:LogError("Failed to start module:", moduleScript, _)
+		framework.__logger:logError("Failed to start module:", moduleScript, _)
 		modulesThatFailed[moduleScript] = true
 	end
 end
@@ -135,10 +140,10 @@ end
 	local Rayworks = require(Packages.Rayworks)
 
 	-- create a config
-	local CONFIG = Rayworks.CreateConfiguration(true, 2, "ExampleKey")
+	local CONFIG = Rayworks.createConfiguration(true, 2, "ExampleKey")
 
 	-- start rayworks
-	Rayworks.Start(ReplicatedStorage.Client.Core, CONFIG)
+	Rayworks.start(ReplicatedStorage.Client.Core, CONFIG)
 	```
 ]=]
 local Rayworks = {}
@@ -147,7 +152,7 @@ local Rayworks = {}
 --[=[
 	@return RayworksConfiguration
 ]=]
-function Rayworks.CreateConfiguration(waitForServer: boolean, searchDepth: number, loadKey: string) : RayworksConfiguration
+function Rayworks.createConfiguration(waitForServer: boolean, searchDepth: number, loadKey: string) : RayworksConfiguration
 	local configClone = table.clone(defaultConfiguration)
 	configClone.LoadKey = loadKey or configClone.LoadKey
 	configClone.SearchDepth = searchDepth or configClone.SearchDepth
@@ -162,11 +167,11 @@ end
 	@param loggerName string
 
 	```lua
-	local myLogger = Rayworks.CreateLogger("myLogger")
+	local myLogger = Rayworks.createLogger("myLogger")
 	```
 ]=]
 local Logger = require(script.Logger)
-function Rayworks.CreateLogger(loggerName: string)
+function Rayworks.createLogger(loggerName: string)
 	return Logger.new(loggerName)
 end
 
@@ -178,7 +183,7 @@ end
 
 	Used to log Rayworks debug information.
 ]=]
-Rayworks.__logger = Rayworks.CreateLogger("Rayworks")
+Rayworks.__logger = Rayworks.createLogger("Rayworks")
 
 
 --[=[
@@ -186,10 +191,10 @@ Rayworks.__logger = Rayworks.CreateLogger("Rayworks")
 	@param moduleName string
 
 	```lua
-	local SomeModule = Rayworks:GetModule("SomeModule")
+	local SomeModule = Rayworks:getModule("SomeModule")
 	```
 ]=]
-function Rayworks:GetModule(moduleName: string)
+function Rayworks:getModule(moduleName: string)
 	return modules[moduleName]
 end
 
@@ -202,10 +207,10 @@ end
 	If a configuration isn't provided, the default Rayworks configuration will be used.
 	```lua
 	local Rayworks = require(...)
-	Rayworks.Start(ReplicatedStorage.Client)
+	Rayworks.start(ReplicatedStorage.Client)
 	```
 ]=]
-function Rayworks.Start(directory: Instance, configuration: RayworksConfiguration?)
+function Rayworks.start(directory: Instance, configuration: RayworksConfiguration?)
 	-- get configuration or default
 	local config = configuration or defaultConfiguration
 
@@ -217,12 +222,16 @@ function Rayworks.Start(directory: Instance, configuration: RayworksConfiguratio
 	end
 
 	-- in-depth search of the directory to load all the modulescripts
-	DirectorySearchFilterWithCallback(directory, "ModuleScript", Load, 0, config.SearchDepth, Rayworks)
-	Rayworks.__logger:LogInfo("Load ✔️")
+	directorySearchFilterWithCallback(directory, "ModuleScript", 0, config.SearchDepth, load, Rayworks)
+	if config.Verbose then
+		Rayworks.__logger:logInfo("Load ✔️")
+	end
 
 	-- initialize all the loaded modules
-	ForEach(Init, modulesWithInit, Rayworks)
-	Rayworks.__logger:LogInfo("Init ✔️")
+	forEach(init, modulesWithInit, Rayworks)
+	if config.Verbose then
+		Rayworks.__logger:logInfo("Init ✔️")
+	end
 
 	-- post start
 	for moduleScript, module in loadedModules do
@@ -232,13 +241,18 @@ function Rayworks.Start(directory: Instance, configuration: RayworksConfiguratio
 	end
 
 	-- start all the loaded modules
-	ForEach(Start, modulesWithStart, Rayworks)
-	Rayworks.__logger:LogInfo("Start ✔️")
+	forEach(start, modulesWithStart, Rayworks)
+	if config.Verbose then
+		Rayworks.__logger:logInfo("Start ✔️")
+	end
+
 
 	-- sets the LOAD_KEY attribute to true
 	if not IS_CLIENT and config.WaitForServer then
 		script:SetAttribute(config.LoadKey, true)
-		Rayworks.__logger:LogInfo("Client can start Rayworks now.")
+		if config.Verbose then
+			Rayworks.__logger:logInfo("Client can start Rayworks now.")
+		end	
 	end
 end
 
