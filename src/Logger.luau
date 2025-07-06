@@ -1,7 +1,14 @@
-type Logger = {
+export type Log = {
+    message: string,
+    timestamp: number,
+    type: string
+}
+
+export type Logger = {
     logInfo: (Logger, ...any) -> (),
     logWarning: (Logger, ...any) -> (),    
     logError: (Logger, ...any) -> (),
+    __logs: { Log }
 }
 
 
@@ -15,7 +22,7 @@ type Logger = {
     local myLogger = Rayworks.createLogger("Ray's Logger")
 
     -- log data
-    myLogger:LogInformation("I am a logger and I have just been created!")
+    myLogger:logInfo("I am a logger and I have just been created!")
     myLogger:logError("Oops :3 System malfunction :D")
     ```
 ]=]
@@ -26,14 +33,13 @@ Logger.__index = Logger
     Static function used by the Logger object to store logs
 ]]
 function Logger.storeLog(logger: Logger, logType: string, log: string)
-    local logData = {}
-    logData.Timestamp = DateTime.now().UnixTimestampMillis
-    logData.Log = log
-    logData.LogType = logType
+    local logData = {
+        message = log,
+        timestamp = os.time(),
+        type = logType
+    }
 
-    table.insert(logger.Logs, logData)
-    
-    Logger.exportLogs(logger)
+    table.insert(logger.__logs, logData)
 end
 
 --[[
@@ -51,12 +57,12 @@ end
 function Logger.new(loggerName: string?) : Logger
     loggerName = loggerName or "Logger"
 
-    local self = {}
+    local self = setmetatable({}, Logger)
 
     self.Name = loggerName
-    self.Logs = {}
+    self.__logs = {}
 
-    return setmetatable(self, Logger)
+    return self
 end
 
 
@@ -66,8 +72,8 @@ end
     Information-level log function.
 ]=]
 function Logger:logInfo(...)
-    print(`✅ [{self.Name}] [Info]`, ...)
-    Logger.storeLog(self, "Info", (...))
+    print(`✅ [{self.Name}] [INFO]`, ...)
+    Logger.storeLog(self, "INFO", (...))
 end
 
 
@@ -77,8 +83,8 @@ end
     Warning-level log function.
 ]=]
 function Logger:logWarning(...)
-    warn(`⚠️ [{self.Name}] [Warn]`, ...)
-    Logger.storeLog(self, "Warn", (...))
+    warn(`⚠️ [{self.Name}] [WARN]`, ...)
+    Logger.storeLog(self, "WARN", (...))
 end
 
 
@@ -88,8 +94,8 @@ end
     Error-level log function.
 ]=]
 function Logger:logError(...)
-    warn(`❌ [{self.Name}] [Error]`, ...)
-    Logger.storeLog(self, "Error", (...))
+    warn(`❌ [{self.Name}] [ERROR]`, ...)
+    Logger.storeLog(self, "ERROR", (...))
 end
 
 return Logger

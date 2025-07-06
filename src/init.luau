@@ -6,10 +6,10 @@
 	@within Rayworks
 ]=]
 type RayworksConfiguration = {
-	WaitForServer: boolean,
-	SearchDepth: number,
-	LoadKey: string,
-	Verbose: boolean
+	WaitForServer: boolean?,
+	SearchDepth: number?,
+	LoadKey: string?,
+	Verbose: boolean?
 }
 
 
@@ -28,8 +28,8 @@ local defaultConfiguration: RayworksConfiguration = {
 	@within Rayworks
 ]=]
 type Module = {
-	init: (self: Module, Rayworks: table) -> (),
-	start: (self: Module, Rayworks: table) -> (),
+	init: (self: Module, Rayworks: {}) -> (),
+	start: (self: Module, Rayworks: {}) -> (),
 	[any]: any
 }
 
@@ -72,27 +72,36 @@ local loadedModules = {}
 local modulesWithInit = {}
 local modulesWithStart = {}
 local modulesThatFailed = {}
-local modules: { [string]: table } = {}
+local modules: { [string]: {any} } = {}
 
 
 -- requires a module script and adds it to the init/start tables if their respective functions are found
-local function load(moduleScript: ModuleScript, framework)
-	local success, _ = pcall(function()
+local function load(moduleScript: Instance, framework)
+	local success, response = pcall(function()
+		-- return if not modulescript
+		if not moduleScript:IsA("ModuleScript") then return end
+
 		-- require the module
 		local module = require(moduleScript)
+
+		-- discard if its not a table
+		if typeof(module) ~= "table" then return end
+
 		-- add it to the loaded table
 		loadedModules[moduleScript] = module
+
 		-- add to init/start
 		if module.init then
 			table.insert(modulesWithInit, moduleScript)
 		end
+		
 		if module.start then
 			table.insert(modulesWithStart, moduleScript)
 		end
 	end)
 
 	if not success then
-		framework.__logger:logError("Failed to load module:", moduleScript, _)
+		framework.__logger:logError("Failed to load module:", moduleScript, response)
 		modulesThatFailed[moduleScript] = true
 	end
 end
@@ -102,13 +111,13 @@ end
 local function init(moduleScript: ModuleScript, framework)
 	if modulesThatFailed[moduleScript] then return end
 
-	local success, _ = pcall(function()
+	local success, response = pcall(function()
 		local module = loadedModules[moduleScript]
 		module:init(framework)
 	end)
 
 	if not success then
-		framework.__logger:logError("Failed to initialize module:", moduleScript, _)
+		framework.__logger:logError("Failed to initialize module:", moduleScript, response)
 		modulesThatFailed[moduleScript] = true
 	end
 end
@@ -118,13 +127,13 @@ end
 local function start(moduleScript: ModuleScript, framework)
 	if modulesThatFailed[moduleScript] then return end
 
-	local success, _ = pcall(function()
+	local success, response = pcall(function()
 		local module = loadedModules[moduleScript]
 		module:start(framework)
 	end)
 
 	if not success then
-		framework.__logger:logError("Failed to start module:", moduleScript, _)
+		framework.__logger:logError("Failed to start module:", moduleScript, response)
 		modulesThatFailed[moduleScript] = true
 	end
 end
@@ -152,11 +161,12 @@ local Rayworks = {}
 --[=[
 	@return RayworksConfiguration
 ]=]
-function Rayworks.createConfiguration(waitForServer: boolean, searchDepth: number, loadKey: string) : RayworksConfiguration
+function Rayworks.createConfiguration(configuration: RayworksConfiguration) : RayworksConfiguration
 	local configClone = table.clone(defaultConfiguration)
-	configClone.LoadKey = loadKey or configClone.LoadKey
-	configClone.SearchDepth = searchDepth or configClone.SearchDepth
-	configClone.WaitForServer = waitForServer or configClone.WaitForServer
+	configClone.LoadKey = configuration.LoadKey or configClone.LoadKey
+	configClone.SearchDepth = configuration.SearchDepth or configClone.SearchDepth
+	configClone.WaitForServer = configuration.WaitForServer or configClone.WaitForServer
+	configClone.Verbose = configuration.Verbose or configClone.Verbose
 
 	return configClone
 end
