@@ -43,6 +43,8 @@ local function forEach(callback: (element: any, ...any) -> (), t: {any}, ...)
 	end
 end
 
+-- logger
+local Logger = require(script.Logger)
 
 -- consts
 local IS_CLIENT = game:GetService("RunService"):IsClient()
@@ -152,7 +154,6 @@ end
 	local myLogger = Rayworks.createLogger("myLogger")
 	```
 ]=]
-local Logger = require(script.Logger)
 function Rayworks.createLogger(loggerName: string)
 	return Logger.new(loggerName)
 end
