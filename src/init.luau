@@ -8,16 +8,7 @@
 type RayworksConfiguration = {
 	WaitForServer: boolean?,
 	SearchDepth: number?,
-	LoadKey: string?,
 	Verbose: boolean?
-}
-
-
-local defaultConfiguration: RayworksConfiguration = {
-	WaitForServer = true,
-	SearchDepth = math.huge,
-	LoadKey = "RayworksLoaded",
-	Verbose = false
 }
 
 
@@ -25,38 +16,28 @@ local defaultConfiguration: RayworksConfiguration = {
 	@interface Module
 	.init (Module, Rayworks) -> ()
 	.start (Module, Rayworks) -> ()
+	.lateStart (Module, Rayworks) -> ()
+	[any]: any
 	@within Rayworks
 ]=]
 type Module = {
 	init: (self: Module, Rayworks: {}) -> (),
 	start: (self: Module, Rayworks: {}) -> (),
+	lateStart: (self: Module, Rayworks: {}) -> (),
 	[any]: any
 }
 
 -- util
 local function directorySearchFilterWithCallback(directory: Instance, t: string, currentDepth: number, maxDepth: number, callback: (instance: Instance) -> (), ...)
-	for _, child in directory:GetChildren() do
-		if child:IsA("Folder") then
-			if child.Name == "Classes" then
-				continue
-			end
-			if currentDepth >= maxDepth then
-				continue
-			end
-			directorySearchFilterWithCallback(child, t, currentDepth + 1, maxDepth, callback, ...)
-		elseif child:IsA(t) then
+	for _, child in directory:GetDescendants() do
+		if child:IsA(t) then
 			callback(child, ...)
-
-			if currentDepth >= maxDepth then
-				continue
-			end
-			directorySearchFilterWithCallback(child, t, currentDepth + 1, maxDepth, callback, ...)
 		end
 	end
 end
 
 
-local function forEach(callback: (element: any) -> (), t: {any}, ...)
+local function forEach(callback: (element: any, ...any) -> (), t: {any}, ...)
 	for _, element in t do
 		callback(element, ...)
 	end
@@ -65,76 +46,68 @@ end
 
 -- consts
 local IS_CLIENT = game:GetService("RunService"):IsClient()
+local LOAD_KEY = "Loaded"
+local DEFAULT_CONFIGURATION: RayworksConfiguration = {
+	WaitForServer = true,
+	SearchDepth = math.huge,
+	Verbose = false
+}
 
 
 -- loader setup
-local loadedModules = {}
-local modulesWithInit = {}
-local modulesWithStart = {}
-local modulesThatFailed = {}
-local modules: { [string]: {any} } = {}
+local modules: { [string]: Module } = {}
+local modulesByPhase = {
+	init = {},
+	start = {},
+	lateStart = {}
+}
 
 
 -- requires a module script and adds it to the init/start tables if their respective functions are found
 local function load(moduleScript: Instance, framework)
-	local success, response = pcall(function()
-		-- return if not modulescript
-		if not moduleScript:IsA("ModuleScript") then return end
+	-- check if the module script is a ModuleScript
+	if not moduleScript:IsA("ModuleScript") then return end
 
-		-- require the module
-		local module = require(moduleScript)
+	-- check if the module script is already loaded, if so, error and prompt the developer to fix the issue
+	if modules[moduleScript.Name] then 
+		framework.__logger:logError(`Module with name {moduleScript.Name} already exists.`)
+		error("Please fix this issue.", 6)
+		return
+	end
 
-		-- discard if its not a table
-		if typeof(module) ~= "table" then return end
+	-- require the module script in a pcall to handle errors gracefully
+	local success, module = pcall(require, moduleScript)
+	if not success or typeof(module) ~= "table" then return end
 
-		-- add it to the loaded table
-		loadedModules[moduleScript] = module
+	-- register module in modules table
+	modules[moduleScript.Name] = module
 
-		-- add to init/start
-		if module.init then
-			table.insert(modulesWithInit, moduleScript)
+	-- store the module in the appropriate phase tables
+	for phase, modulesInPhase in modulesByPhase do
+		if module[phase] and typeof(module[phase]) == "function" then
+			table.insert(modulesInPhase, moduleScript.Name)
 		end
-		
-		if module.start then
-			table.insert(modulesWithStart, moduleScript)
-		end
-	end)
-
-	if not success then
-		framework.__logger:logError("Failed to load module:", moduleScript, response)
-		modulesThatFailed[moduleScript] = true
 	end
 end
 
 
--- initializes a module script by calling its init function
-local function init(moduleScript: ModuleScript, framework)
-	if modulesThatFailed[moduleScript] then return end
+-- runs a phase
+local function runPhase(moduleName: string, phase: string, framework)
+	local module = modules[moduleName]
 
-	local success, response = pcall(function()
-		local module = loadedModules[moduleScript]
-		module:init(framework)
-	end)
-
-	if not success then
-		framework.__logger:logError("Failed to initialize module:", moduleScript, response)
-		modulesThatFailed[moduleScript] = true
+	-- get the module
+	if not module then
+		framework.__logger:logError(`Module not found: {moduleName}`)
+		return
 	end
-end
 
+	-- run the phase function in a pcall
+	local success, response = pcall(module[phase], module, framework)
 
--- starts a module script by calling its start function
-local function start(moduleScript: ModuleScript, framework)
-	if modulesThatFailed[moduleScript] then return end
-
-	local success, response = pcall(function()
-		local module = loadedModules[moduleScript]
-		module:start(framework)
-	end)
-
+	-- remove the module if it failed
 	if not success then
-		framework.__logger:logError("Failed to start module:", moduleScript, response)
-		modulesThatFailed[moduleScript] = true
+		framework.__logger:logError(`Failed to run {phase} phase for {moduleName}:`, response)
+		modules[moduleName] = nil
 	end
 end
 
@@ -162,8 +135,7 @@ local Rayworks = {}
 	@return RayworksConfiguration
 ]=]
 function Rayworks.createConfiguration(configuration: RayworksConfiguration) : RayworksConfiguration
-	local configClone = table.clone(defaultConfiguration)
-	configClone.LoadKey = configuration.LoadKey or configClone.LoadKey
+	local configClone = table.clone(DEFAULT_CONFIGURATION)
 	configClone.SearchDepth = configuration.SearchDepth or configClone.SearchDepth
 	configClone.WaitForServer = configuration.WaitForServer or configClone.WaitForServer
 	configClone.Verbose = configuration.Verbose or configClone.Verbose
@@ -202,6 +174,7 @@ Rayworks.__logger = Rayworks.createLogger("Rayworks")
 
 	```lua
 	local SomeModule = Rayworks:getModule("SomeModule")
+	SomeModule:someFunction()
 	```
 ]=]
 function Rayworks:getModule(moduleName: string)
@@ -222,44 +195,33 @@ end
 ]=]
 function Rayworks.start(directory: Instance, configuration: RayworksConfiguration?)
 	-- get configuration or default
-	local config = configuration or defaultConfiguration
+	local config = configuration or DEFAULT_CONFIGURATION
 
 	-- if WAIT_FOR_SERVER option is set to true, the client loader will pause the code execution until the LOAD_KEY attribute is set
 	if IS_CLIENT and config.WaitForServer then
 		repeat
 			task.wait()
-		until script:GetAttribute(config.LoadKey)
+		until script:GetAttribute(LOAD_KEY)
 	end
 
 	-- in-depth search of the directory to load all the modulescripts
 	directorySearchFilterWithCallback(directory, "ModuleScript", 0, config.SearchDepth, load, Rayworks)
-	if config.Verbose then
-		Rayworks.__logger:logInfo("Load ✔️")
-	end
+	if config.Verbose then Rayworks.__logger:logInfo("Load ✔️") end
 
 	-- initialize all the loaded modules
-	forEach(init, modulesWithInit, Rayworks)
-	if config.Verbose then
-		Rayworks.__logger:logInfo("Init ✔️")
-	end
+	forEach(runPhase, modulesByPhase.init, "init", Rayworks)
+	if config.Verbose then Rayworks.__logger:logInfo("Init ✔️") end
 
-	-- post start
-	for moduleScript, module in loadedModules do
-		if not modulesThatFailed[moduleScript] then
-			modules[moduleScript.Name] = module
-		end
-	end
+	forEach(runPhase, modulesByPhase.start, "start", Rayworks)
+	if config.Verbose then Rayworks.__logger:logInfo("Start ✔️") end
 
-	-- start all the loaded modules
-	forEach(start, modulesWithStart, Rayworks)
-	if config.Verbose then
-		Rayworks.__logger:logInfo("Start ✔️")
-	end
+	forEach(runPhase, modulesByPhase.lateStart, "lateStart", Rayworks)
+	if config.Verbose then Rayworks.__logger:logInfo("LateStart ✔️") end
 
 
 	-- sets the LOAD_KEY attribute to true
 	if not IS_CLIENT and config.WaitForServer then
-		script:SetAttribute(config.LoadKey, true)
+		script:SetAttribute(LOAD_KEY, true)
 		if config.Verbose then
 			Rayworks.__logger:logInfo("Client can start Rayworks now.")
 		end	
